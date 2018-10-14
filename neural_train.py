@@ -6,6 +6,9 @@ from keras.wrappers.scikit_learn import KerasClassifier
 from keras.utils import np_utils
 from keras import regularizers
 from keras.callbacks import ModelCheckpoint
+from keras.layers.normalization import BatchNormalization
+from keras.callbacks import EarlyStopping
+
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import LabelEncoder
@@ -75,13 +78,14 @@ def create_model(n_features,regularizer):
 	# Hidden layer 1
 	print("input_dim: ", n_features)
 	model.add(Dense(units=100, input_dim=n_features, activation='sigmoid',kernel_initializer='random_uniform',bias_initializer='zeros',kernel_regularizer=regularizers.l2(regularizer)))
-	#model.add(Dense(units=100, activation='sigmoid'))
+	model.add(BatchNormalization())
+	model.add(Dense(units=100, activation='sigmoid'))
 	model.add(Dense(units=64, activation='sigmoid'))
 	# Output layer
 	model.add(Dense(10, activation='softmax'))
 	return model
 
-def evaluate_model(model,X_train,y_train,X_test,y_test,epochs=10,batch_size=128,filename='model'):
+def evaluate_model(model,X_train,y_train,X_test,y_test,epochs=10,batch_size=32,filename='model'):
 	# Print basic model info
 	model.summary()
 	# Compile model
@@ -116,16 +120,15 @@ def normalize(X):
 	X_norm = X_norm*2 - 1
 	return X_norm
 
-# TODO: Batch normalization?
-# TODO: Weight initialization
-# TODO: Find optimal learning rate
 # TODO: Tweak regularization parameters
+# TODO: Add dropout layer
+# TODO: Early stopping
 
 def main():
 
 	VAR_THR = 0.000
 	COR_THR = 0.995
-	REGUL = 0.005
+	REGUL = 0.05
 	# Import data
 	data = pd.read_csv('kaggle_data/train_data.csv',header=None)
 	labels = pd.read_csv('kaggle_data/train_labels.csv',header=None)
@@ -139,7 +142,7 @@ def main():
 	Y_train = _to_categorical(y_train)
 	Y_test = _to_categorical(y_test)
 	model = create_model(X_train.shape[1],REGUL)
-	evaluate_model(model,X_train,Y_train,X_test,Y_test,epochs=1000,batch_size=32,filename="models/model_2/model_2_regul_005")
+	evaluate_model(model,X_train,Y_train,X_test,Y_test,epochs=2000,batch_size=32,filename="models/model_5/model_5_regul_05_batchnorm")
 	preds = model.predict(X_test)
 	print(preds)
 	print(Y_test)
