@@ -8,6 +8,8 @@ from keras import regularizers
 from keras.callbacks import ModelCheckpoint
 from keras.layers.normalization import BatchNormalization
 from keras.callbacks import EarlyStopping
+from keras.layers.core import Dropout
+from keras import optimizers
 
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
@@ -69,7 +71,8 @@ def _to_categorical(y_train):
 	encoded_Y = np_utils.to_categorical(encoded_Y)
 	return encoded_Y
 
-# TODO: Figure out why no progress during training
+# TODO: Relu instead of Sigmoid?
+# TODO: Hyperparameter search
 
 # define baseline model
 def create_model(n_features,regularizer):
@@ -77,10 +80,12 @@ def create_model(n_features,regularizer):
 	model = Sequential()
 	# Hidden layer 1
 	print("input_dim: ", n_features)
-	model.add(Dense(units=100, input_dim=n_features, activation='sigmoid',kernel_initializer='random_uniform',bias_initializer='zeros',kernel_regularizer=regularizers.l2(regularizer)))
+	model.add(Dense(units=1024, input_dim=n_features, activation='sigmoid',kernel_initializer='random_uniform',bias_initializer='zeros',kernel_regularizer=regularizers.l2(regularizer)))
 	model.add(BatchNormalization())
-	model.add(Dense(units=100, activation='sigmoid'))
-	model.add(Dense(units=64, activation='sigmoid'))
+	model.add(Dropout(0.4))
+	model.add(Dense(units=1024, activation='relu'))
+	model.add(Dropout(0.4))
+	model.add(Dense(units=64, activation='relu'))
 	# Output layer
 	model.add(Dense(10, activation='softmax'))
 	return model
@@ -88,17 +93,20 @@ def create_model(n_features,regularizer):
 def evaluate_model(model,X_train,y_train,X_test,y_test,epochs=10,batch_size=32,filename='model'):
 	# Print basic model info
 	model.summary()
+	# Set up gradient descent & learning rate
+	sgd = optimizers.SGD(lr=0.01, clipnorm=1.)
 	# Compile model
-	model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])
+	model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
 	# Train model
 	print("INPUT DATA \n", X_train)
 	print(X_train.shape)
 	print("LABELS \n", y_train)
 	print(y_train.shape)
 	sleep(5)
-	filepath=filename+"-{epoch:02d}-{loss:.4f}.hdf5"
-	checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min',period=50)
-	callbacks_list = [checkpoint]
+	filepath=filename+"-{epoch:02d}-{val_acc:.4f}.hdf5"
+	checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max',period=1)
+	early_stopping = EarlyStopping(monitor='val_acc', min_delta=0.01, patience=600, verbose=1, mode='max', baseline=None, restore_best_weights=True)
+	callbacks_list = [checkpoint,early_stopping]
 	history = model.fit(X_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=.1, verbose=True,callbacks=callbacks_list)
 	# Evaluate model
 	loss, accuracy  = model.evaluate(X_test, y_test, verbose=True)
@@ -117,18 +125,17 @@ def evaluate_model(model,X_train,y_train,X_test,y_test,epochs=10,batch_size=32,f
 
 def normalize(X):
 	X_norm = (X - X.min(axis=0))/(X.max(axis=0) - X.min(axis=0))
-	X_norm = X_norm*2 - 1
+	X_norm = X_norm
 	return X_norm
 
 # TODO: Tweak regularization parameters
-# TODO: Add dropout layer
 # TODO: Early stopping
 
 def main():
 
 	VAR_THR = 0.000
 	COR_THR = 0.995
-	REGUL = 0.05
+	REGUL = 0.25
 	# Import data
 	data = pd.read_csv('kaggle_data/train_data.csv',header=None)
 	labels = pd.read_csv('kaggle_data/train_labels.csv',header=None)
@@ -142,7 +149,7 @@ def main():
 	Y_train = _to_categorical(y_train)
 	Y_test = _to_categorical(y_test)
 	model = create_model(X_train.shape[1],REGUL)
-	evaluate_model(model,X_train,Y_train,X_test,Y_test,epochs=2000,batch_size=32,filename="models/model_5/model_5_regul_05_batchnorm")
+	evaluate_model(model,X_train,Y_train,X_test,Y_test,epochs=20000,batch_size=32,filename="models/model_10/model_10_regul_09_1024_1024_64")
 	preds = model.predict(X_test)
 	print(preds)
 	print(Y_test)
