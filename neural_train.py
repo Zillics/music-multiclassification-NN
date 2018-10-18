@@ -133,7 +133,7 @@ def normalize(X):
 
 def main():
 
-	VAR_THR = 0.000
+	VAR_THR = 0.0001
 	COR_THR = 0.995
 	REGUL = 0.25
 	# Import data
@@ -149,7 +149,7 @@ def main():
 	Y_train = _to_categorical(y_train)
 	Y_test = _to_categorical(y_test)
 	model = create_model(X_train.shape[1],REGUL)
-	evaluate_model(model,X_train,Y_train,X_test,Y_test,epochs=20000,batch_size=32,filename="models/model_10/model_10_regul_09_1024_1024_64")
+	evaluate_model(model,X_train,Y_train,X_test,Y_test,epochs=20000,batch_size=32,filename="models/model_11/model_11_regul_09_1024_1024_64")
 	preds = model.predict(X_test)
 	print(preds)
 	print(Y_test)
